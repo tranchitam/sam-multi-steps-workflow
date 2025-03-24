@@ -3,7 +3,7 @@ ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 run:
 	docker run -p 8083:8083 --env-file aws-stepfunctions-local-credentials.txt amazon/aws-stepfunctions-local
 
-create-stepfunctions:
+create:
 	aws stepfunctions create-state-machine \
 		--endpoint-url http://localhost:8083 \
 		--region us-east-1 \
@@ -11,7 +11,6 @@ create-stepfunctions:
 		--name "StockTradingLocalTesting" \
 		--role-arn "arn:aws:iam::123456789012:role/DummyRole" \
 		--no-cli-pager
-
 
 test:
 	aws stepfunctions start-execution \
