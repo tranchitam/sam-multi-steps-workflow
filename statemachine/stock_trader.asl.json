@@ -1,0 +1,96 @@
+{
+    "Comment": "A state machine that does mock stock trading.",
+    "StartAt": "Check Stock Value",
+    "States": {
+        "Check Stock Value": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-east-1:123456789012:function:StockCheckerFunction",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 15,
+                    "MaxAttempts": 5,
+                    "BackoffRate": 1.5
+                }
+            ],
+            "Next": "Process Items in Parallel"
+        },
+        "Process Items in Parallel": {
+            "Type": "Map",
+            "MaxConcurrency": 10,
+            "ItemsPath": "$.items",
+            "ResultPath": "$.processed_items",
+            "Iterator": {
+                "StartAt": "Process Item",
+                "States": {
+                    "Process Item": {
+                        "Type": "Task",
+                        "Resource": "arn:aws:lambda:us-east-1:123456789012:function:DistributedMapProcessorFunction",
+                        "End": true,
+                        "Retry": [
+                            {
+                                "ErrorEquals": [
+                                    "States.TaskFailed"
+                                ],
+                                "IntervalSeconds": 2,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 1
+                            }
+                        ]
+                    }
+                }
+            },
+            "Next": "Aggregate Prices"
+        },
+        "Aggregate Prices": {
+            "Type": "Pass",
+            "Parameters": {
+                "stock_price.$": "States.MathAdd(States.ArrayGetItem($.processed_items[*].stock_price, 0), States.ArrayGetItem($.processed_items[*].stock_price, 1))"
+            },
+            "Next": "Buy or Sell?"
+        },
+        "Buy or Sell?": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.stock_price",
+                    "NumericLessThanEquals": 50,
+                    "Next": "Buy Stock"
+                }
+            ],
+            "Default": "Sell Stock"
+        },
+        "Sell Stock": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-east-1:123456789012:function:StockSellerFunction",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 1
+                }
+            ],
+            "End": true
+        },
+        "Buy Stock": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-east-1:123456789012:function:StockBuyerFunction",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 1
+                }
+            ],
+            "End": true
+        }
+    }
+}
